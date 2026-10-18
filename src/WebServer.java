@@ -19,12 +19,15 @@ public class WebServer {
     static final VenueDAO venueDAO = new VenueDAO();
     static final EventDAO eventDAO = new EventDAO();
     static final RegistrationDAO registrationDAO = new RegistrationDAO();
+    static final ParticipantDAO participantDAO = new ParticipantDAO();
 
     public static void main(String[] args) throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
         server.createContext("/api/venues", WebServer::handleVenues);
         server.createContext("/api/events/status", WebServer::handleEventStatus);
         server.createContext("/api/events", WebServer::handleEvents);
+        server.createContext("/api/participants", WebServer::handleParticipants);
+        server.createContext("/api/registrations", WebServer::handleRegistrations);
         server.createContext("/", WebServer::handleStatic);
         server.start();
         System.out.println("Server running at http://localhost:8080");
@@ -196,6 +199,107 @@ public class WebServer {
 
             eventDAO.updateStatus(id, status);
             send(ex, 200, "application/json", "{\"ok\":true}");
+        } catch (Exception e) {
+            e.printStackTrace();
+            error(ex, 500, "Server error.");
+        }
+    }
+
+        // ---------- API: /api/participants ----------
+    static void handleParticipants(HttpExchange ex) throws IOException {
+        try {
+            String method = ex.getRequestMethod();
+            if (method.equals("GET")) {
+                StringBuilder sb = new StringBuilder("[");
+                boolean first = true;
+                for (String[] p : participantDAO.getAllParticipants()) {
+                    if (!first) sb.append(",");
+                    first = false;
+                    sb.append("{\"id\":").append(p[0])
+                      .append(",\"name\":\"").append(esc(p[1]))
+                      .append("\",\"email\":\"").append(esc(p[2])).append("\"}");
+                }
+                sb.append("]");
+                send(ex, 200, "application/json", sb.toString());
+
+            } else if (method.equals("POST")) {
+                Map<String, String> f = parseForm(ex);
+                String name = f.getOrDefault("name", "").trim();
+                String email = f.getOrDefault("email", "").trim();
+                if (name.isEmpty()) {
+                    error(ex, 400, "Please enter a name.");
+                } else if (!email.matches("[^@\\s]+@[^@\\s]+\\.[^@\\s]+")) {
+                    error(ex, 400, "Please enter a valid email address.");
+                } else {
+                    String problem = participantDAO.tryAddParticipant(name, email);
+                    if (problem == null) {
+                        send(ex, 201, "application/json", "{\"ok\":true}");
+                    } else {
+                        error(ex, 409, problem);
+                    }
+                }
+            } else {
+                error(ex, 405, "Method not allowed.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            error(ex, 500, "Server error.");
+        }
+    }
+
+    // ---------- API: /api/registrations ----------
+    static void handleRegistrations(HttpExchange ex) throws IOException {
+        try {
+            String method = ex.getRequestMethod();
+            if (method.equals("GET")) {
+                int eventId = -1;
+                String query = ex.getRequestURI().getQuery();
+                if (query != null) {
+                    for (String pair : query.split("&")) {
+                        String[] kv = pair.split("=", 2);
+                        if (kv[0].equals("eventId") && kv.length == 2) {
+                            try {
+                                eventId = Integer.parseInt(kv[1].trim());
+                            } catch (NumberFormatException ignored) { }
+                        }
+                    }
+                }
+                if (eventId < 0) {
+                    error(ex, 400, "Please choose an event.");
+                    return;
+                }
+                StringBuilder sb = new StringBuilder("[");
+                boolean first = true;
+                for (String[] r : registrationDAO.getRegistrationsForEvent(eventId)) {
+                    if (!first) sb.append(",");
+                    first = false;
+                    sb.append("{\"id\":").append(r[0])
+                      .append(",\"name\":\"").append(esc(r[1]))
+                      .append("\",\"email\":\"").append(esc(r[2]))
+                      .append("\",\"registeredAt\":\"").append(esc(r[3])).append("\"}");
+                }
+                sb.append("]");
+                send(ex, 200, "application/json", sb.toString());
+
+            } else if (method.equals("POST")) {
+                Map<String, String> f = parseForm(ex);
+                int eventId, participantId;
+                try {
+                    eventId = Integer.parseInt(f.getOrDefault("eventId", "").trim());
+                    participantId = Integer.parseInt(f.getOrDefault("participantId", "").trim());
+                } catch (NumberFormatException e) {
+                    error(ex, 400, "Please choose an event and a participant.");
+                    return;
+                }
+                String problem = registrationDAO.tryRegister(eventId, participantId);
+                if (problem == null) {
+                    send(ex, 201, "application/json", "{\"ok\":true}");
+                } else {
+                    error(ex, 409, problem);
+                }
+            } else {
+                error(ex, 405, "Method not allowed.");
+            }
         } catch (Exception e) {
             e.printStackTrace();
             error(ex, 500, "Server error.");

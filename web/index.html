@@ -10,10 +10,11 @@
   <header>
     <h1>Campus Event Management</h1>
     <nav>
-      <span class="active" data-tab="venues">Venues</span>
-      <span data-tab="events">Events</span>
-      <span class="soon">Participants</span>
-    </nav>
+        <span class="active" data-tab="venues">Venues</span>
+        <span data-tab="events">Events</span>
+        <span data-tab="participants">Participants</span>
+        <span data-tab="registrations">Registrations</span>
+</nav>
   </header>
 
   <main>
@@ -73,7 +74,53 @@
         </form>
         <p id="event-message" role="status"></p>
       </section>
+    </div>    <!-- ===== Participants tab ===== -->
+    <div class="tab" id="tab-participants" hidden>
+      <section class="card">
+        <h2>Participants</h2>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Name</th><th>Email</th></tr>
+          </thead>
+          <tbody id="participant-rows"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Add participant</h2>
+        <form id="participant-form">
+          <label>Name <input name="name" required></label>
+          <label>Email <input name="email" type="email" required></label>
+          <button type="submit">Add participant</button>
+        </form>
+        <p id="participant-message" role="status"></p>
+      </section>
     </div>
+
+    <!-- ===== Registrations tab ===== -->
+    <div class="tab" id="tab-registrations" hidden>
+      <section class="card">
+        <h2>Register a participant</h2>
+        <form id="register-form">
+          <label>Event (approved only) <select name="eventId" id="reg-event"></select></label>
+          <label>Participant <select name="participantId" id="reg-participant"></select></label>
+          <button type="submit">Register</button>
+        </form>
+        <p id="register-message" role="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>Registered participants</h2>
+        <label>Event <select id="view-event"></select></label>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Name</th><th>Email</th><th>Registered at</th></tr>
+          </thead>
+          <tbody id="registered-rows"></tbody>
+        </table>
+      </section>
+    </div>
+
   </main>
 
   <script src="app.js"></script>

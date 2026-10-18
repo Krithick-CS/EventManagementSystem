@@ -122,3 +122,10 @@ button.danger { background: var(--error); }
 #event-message, #event-action-message { margin: 12px 0 0; min-height: 1.2em; font-size: 0.9rem; }
 #event-message.error, #event-action-message.error { color: var(--error); }
 #event-message.ok, #event-action-message.ok { color: var(--ok); }
+
+/* ----- Status messages for the new forms ----- */
+.card p[role="status"] { margin: 12px 0 0; min-height: 1.2em; font-size: 0.9rem; }
+.card p[role="status"].error { color: var(--error); }
+.card p[role="status"].ok { color: var(--ok); }
+
+#tab-registrations .card > label { margin-bottom: 14px; max-width: 360px; }
