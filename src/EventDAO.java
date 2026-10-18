@@ -75,6 +75,50 @@ public class EventDAO {
         }
     }
 
+    public String tryAddEvent(String title, String description, String organizer,int venueId, LocalDateTime start, LocalDateTime end,int maxCapacity) {
+        if (!end.isAfter(start)) {
+            return "End time must be after start time.";
+    }
+
+    int venueCapacity = -1;
+    String capSql = "SELECT capacity FROM venues WHERE venue_id = ?";
+    try (Connection conn = DBConnection.getConnection();
+         PreparedStatement ps = conn.prepareStatement(capSql)) {
+        ps.setInt(1, venueId);
+        try (ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) venueCapacity = rs.getInt("capacity");
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return "Database error.";
+    }
+
+    if (venueCapacity == -1) return "Venue not found.";
+    if (maxCapacity > venueCapacity) {
+        return "Capacity exceeds the venue's capacity (" + venueCapacity + ").";
+    }
+    if (hasConflict(venueId, start, end)) {
+        return "Venue is already booked for that time.";
+    }
+
+    String sql = "INSERT INTO events (title, description, organizer, venue_id, "
+               + "start_time, end_time, max_capacity) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    try (Connection conn = DBConnection.getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setString(1, title);
+        ps.setString(2, description);
+        ps.setString(3, organizer);
+        ps.setInt(4, venueId);
+        ps.setTimestamp(5, Timestamp.valueOf(start));
+        ps.setTimestamp(6, Timestamp.valueOf(end));
+        ps.setInt(7, maxCapacity);
+        ps.executeUpdate();
+        return null;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return "Database error.";
+    }
+}
     public boolean hasConflict(int venueId, LocalDateTime start, LocalDateTime end) {
         String sql = "SELECT COUNT(*) FROM events "
                    + "WHERE venue_id = ? "
