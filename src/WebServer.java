@@ -13,6 +13,7 @@ import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.Duration;
 
 public class WebServer {
     static final Path WEB_DIR = Path.of("web").toAbsolutePath().normalize();
@@ -28,6 +29,7 @@ public class WebServer {
         server.createContext("/api/events", WebServer::handleEvents);
         server.createContext("/api/participants", WebServer::handleParticipants);
         server.createContext("/api/registrations", WebServer::handleRegistrations);
+        server.createContext("/api/dashboard", WebServer::handleDashboard);
         server.createContext("/", WebServer::handleStatic);
         server.start();
         System.out.println("Server running at http://localhost:8080");
@@ -306,6 +308,76 @@ public class WebServer {
         }
     }
 
+        // ---------- API: /api/dashboard ----------
+    static void handleDashboard(HttpExchange ex) throws IOException {
+        try {
+            if (!ex.getRequestMethod().equals("GET")) {
+                error(ex, 405, "Method not allowed.");
+                return;
+            }
+
+            List<Venue> venues = venueDAO.getAllVenues();
+            List<Event> events = eventDAO.getAllEvents();
+
+            int draft = 0, approved = 0, cancelled = 0, completed = 0, totalRegs = 0;
+            Map<Integer, Integer> venueEvents = new HashMap<>();
+            Map<Integer, Double> venueHours = new HashMap<>();
+            StringBuilder perEvent = new StringBuilder("[");
+            boolean first = true;
+
+            for (Event e : events) {
+                String st = e.getStatus();
+                if ("DRAFT".equals(st)) draft++;
+                else if ("APPROVED".equals(st)) approved++;
+                else if ("CANCELLED".equals(st)) cancelled++;
+                else if ("COMPLETED".equals(st)) completed++;
+
+                if ("CANCELLED".equals(st)) continue; // cancelled events don't count as active
+
+                int reg = registrationDAO.countRegistrations(e.getEventId());
+                totalRegs += reg;
+
+                double hours = Duration.between(e.getStartTime(), e.getEndTime()).toMinutes() / 60.0;
+                venueEvents.merge(e.getVenueId(), 1, Integer::sum);
+                venueHours.merge(e.getVenueId(), hours, Double::sum);
+
+                if (!first) perEvent.append(",");
+                first = false;
+                perEvent.append("{\"title\":\"").append(esc(e.getTitle()))
+                        .append("\",\"registered\":").append(reg)
+                        .append(",\"capacity\":").append(e.getMaxCapacity())
+                        .append(",\"status\":\"").append(esc(st)).append("\"}");
+            }
+            perEvent.append("]");
+
+            StringBuilder perVenue = new StringBuilder("[");
+            for (int i = 0; i < venues.size(); i++) {
+                Venue v = venues.get(i);
+                if (i > 0) perVenue.append(",");
+                perVenue.append("{\"name\":\"").append(esc(v.getName()))
+                        .append("\",\"events\":").append(venueEvents.getOrDefault(v.getVenueId(), 0))
+                        .append(",\"hours\":").append(String.format(java.util.Locale.ROOT, "%.1f",
+                                venueHours.getOrDefault(v.getVenueId(), 0.0)))
+                        .append("}");
+            }
+            perVenue.append("]");
+
+            String json = "{\"venues\":" + venues.size()
+                    + ",\"participants\":" + participantDAO.getAllParticipants().size()
+                    + ",\"events\":" + events.size()
+                    + ",\"draft\":" + draft
+                    + ",\"approved\":" + approved
+                    + ",\"cancelled\":" + cancelled
+                    + ",\"completed\":" + completed
+                    + ",\"registrations\":" + totalRegs
+                    + ",\"perEvent\":" + perEvent
+                    + ",\"perVenue\":" + perVenue + "}";
+            send(ex, 200, "application/json", json);
+        } catch (Exception e) {
+            e.printStackTrace();
+            error(ex, 500, "Server error.");
+        }
+    }
     // ---------- Static files from the web folder ----------
     static void handleStatic(HttpExchange ex) throws IOException {
         String path = ex.getRequestURI().getPath();

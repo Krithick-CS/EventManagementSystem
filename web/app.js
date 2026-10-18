@@ -15,6 +15,7 @@ document.querySelectorAll("nav [data-tab]").forEach((btn) => {
         if (btn.dataset.tab === "events") loadEvents();
         if (btn.dataset.tab === "participants") loadParticipants();
         if (btn.dataset.tab === "registrations") loadRegistrationTab();
+        if (btn.dataset.tab === "dashboard") loadDashboard();
   });
 });
 
@@ -260,3 +261,86 @@ $("register-form").addEventListener("submit", async (e) => {
     showMessage($("register-message"), data.error, true);
   }
 });
+
+// ---------- Dashboard ----------
+function statCard(label, value) {
+  const div = document.createElement("div");
+  div.className = "stat";
+  const num = document.createElement("div");
+  num.className = "stat-value";
+  num.textContent = value;
+  const lab = document.createElement("div");
+  lab.className = "stat-label";
+  lab.textContent = label;
+  div.appendChild(num);
+  div.appendChild(lab);
+  return div;
+}
+
+function barRow(label, text, percent) {
+  const row = document.createElement("div");
+  row.className = "bar-row";
+
+  const name = document.createElement("div");
+  name.className = "bar-label";
+  name.textContent = label;
+
+  const track = document.createElement("div");
+  track.className = "bar-track";
+  const fill = document.createElement("div");
+  fill.className = "bar-fill";
+  fill.style.width = Math.min(100, Math.max(0, percent)) + "%";
+  track.appendChild(fill);
+
+  const value = document.createElement("div");
+  value.className = "bar-text";
+  value.textContent = text;
+
+  row.appendChild(name);
+  row.appendChild(track);
+  row.appendChild(value);
+  return row;
+}
+
+function emptyNote(text) {
+  const p = document.createElement("p");
+  p.className = "muted";
+  p.textContent = text;
+  return p;
+}
+
+async function loadDashboard() {
+  const res = await fetch("/api/dashboard");
+  const d = await res.json();
+
+  const stats = $("stats");
+  stats.innerHTML = "";
+  stats.appendChild(statCard("Venues", d.venues));
+  stats.appendChild(statCard("Participants", d.participants));
+  stats.appendChild(statCard("Events (all)", d.events));
+  stats.appendChild(statCard("Approved", d.approved));
+  stats.appendChild(statCard("Draft", d.draft));
+  stats.appendChild(statCard("Cancelled", d.cancelled));
+  stats.appendChild(statCard("Active registrations", d.registrations));
+
+  const eventBars = $("event-bars");
+  eventBars.innerHTML = "";
+  if (d.perEvent.length === 0) {
+    eventBars.appendChild(emptyNote("No active events yet."));
+  }
+  for (const e of d.perEvent) {
+    const pct = e.capacity > 0 ? (e.registered / e.capacity) * 100 : 0;
+    eventBars.appendChild(
+      barRow(e.title + " (" + e.status.toLowerCase() + ")",
+             e.registered + " / " + e.capacity, pct));
+  }
+
+  const venueBars = $("venue-bars");
+  venueBars.innerHTML = "";
+  const maxHours = Math.max(1, ...d.perVenue.map((v) => parseFloat(v.hours)));
+  for (const v of d.perVenue) {
+    venueBars.appendChild(
+      barRow(v.name, v.events + " event(s), " + v.hours + " h",
+             (parseFloat(v.hours) / maxHours) * 100));
+  }
+}

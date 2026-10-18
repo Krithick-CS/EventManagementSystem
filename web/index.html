@@ -14,6 +14,7 @@
         <span data-tab="events">Events</span>
         <span data-tab="participants">Participants</span>
         <span data-tab="registrations">Registrations</span>
+        <span data-tab="dashboard">Dashboard</span>
 </nav>
   </header>
 
@@ -121,6 +122,20 @@
       </section>
     </div>
 
+        <!-- ===== Dashboard tab ===== -->
+    <div class="tab" id="tab-dashboard" hidden>
+      <div class="stats" id="stats"></div>
+
+      <section class="card">
+        <h2>Registrations per event</h2>
+        <div id="event-bars"></div>
+      </section>
+
+      <section class="card">
+        <h2>Venue utilization</h2>
+        <div id="venue-bars"></div>
+      </section>
+    </div>
   </main>
 
   <script src="app.js"></script>
